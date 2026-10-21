@@ -56,10 +56,12 @@ These checks describe the verified baseline at the time of testing. Re-run the c
 ### Database access and secrets
 - Keep `DATABASE_URL` in the local `.env` file or an approved deployment secret store. Never commit or print credentials.
 - The development connection currently uses `neondb_owner`, a broadly privileged role. Do not expose this credential in browser code or a public client.
-- Before deploying an application or public API, design and test separate least-privilege access for ingestion and read-only approved aggregates.
+- Least-privilege roles created: `ifi_pipeline_writer`, `ifi_dashboard_reader`, and `ifi_migrator`. All are `NOLOGIN`, non-superuser, and have no database-creation or role-creation privileges.
+- The `ifi_pipeline_writer` grants on `airports` and `collection_runs`, column-level `SELECT` privileges, and the two identity-sequence `USAGE` privileges were applied and verified. It has no table-wide `SELECT` or `DELETE` privilege on those two tables.
+- Restricted-role integration remains pending: `neondb_owner` cannot currently `SET ROLE ifi_pipeline_writer`. Do not claim the importer has been validated under the writer role until a dedicated restricted connection test passes.
 - Do not grant public access to raw ADS-B observations or unrestricted database tables.
 - Review effective role memberships, table privileges, schema privileges, and sequence/function permissions before deployment.
-- Do not change production grants until the intended deployment access model has been reviewed and tested.
+- The initial pipeline-writer grants have been applied to the Neon `public` schema. Do not add or broaden production grants until the intended deployment access model has been reviewed and tested.
 
 ### Outstanding Stage 3 work
 - Automate the real-PostgreSQL rollback test in an opt-in integration-test suite using an isolated temporary schema.
