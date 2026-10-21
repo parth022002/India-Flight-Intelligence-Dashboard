@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "description": "Project collection cadence and live ADS-B retention. T5/T6 movement cutoffs are unresolved pending approval.",
+  "tiers": [
+    {
+      "tier": "T1",
+      "annual_movements_min_inclusive": 100000,
+      "annual_movements_max_inclusive": null,
+      "poll_interval_minutes": 60,
+      "live_adsb_retention_months": 6
+    },
+    {
+      "tier": "T2",
+      "annual_movements_min_inclusive": 40000,
+      "annual_movements_max_inclusive": 99999,
+      "poll_interval_minutes": 90,
+      "live_adsb_retention_months": 8
+    },
+    {
+      "tier": "T3",
+      "annual_movements_min_inclusive": 12000,
+      "annual_movements_max_inclusive": 39999,
+      "poll_interval_minutes": 120,
+      "live_adsb_retention_months": 10
+    },
+    {
+      "tier": "T4",
+      "annual_movements_min_inclusive": 1000,
+      "annual_movements_max_inclusive": 11999,
+      "poll_interval_minutes": 150,
+      "live_adsb_retention_months": 12
+    },
+    {
+      "tier": "T5",
+      "annual_movements_min_inclusive": null,
+      "annual_movements_max_inclusive": null,
+      "poll_interval_minutes": 180,
+      "live_adsb_retention_months": 14,
+      "status": "unresolved_movement_boundary"
+    },
+    {
+      "tier": "T6",
+      "annual_movements_min_inclusive": null,
+      "annual_movements_max_inclusive": null,
+      "poll_interval_minutes": 210,
+      "live_adsb_retention_months": 16,
+      "status": "unresolved_movement_boundary"
+    },
+    {
+      "tier": "T0",
+      "annual_movements_min_inclusive": null,
+      "annual_movements_max_inclusive": null,
+      "poll_interval_minutes": 240,
+      "live_adsb_retention_months": 18,
+      "status": "unclassified_or_reliable_traffic_data_unavailable"
+    }
+  ],
+  "rules": [
+    "T0 means unclassified or reliable traffic data unavailable, not no traffic.",
+    "Do not assign T5/T6 until non-overlapping boundaries are approved.",
+    "Collection intervals are targets, not guarantees."
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "status": "starter_policy_requires_review",
+  "description": "No operational hazard labels until thresholds are source-backed and reviewed.",
+  "rules": []
+}

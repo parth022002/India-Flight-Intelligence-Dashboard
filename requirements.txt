@@ -1,0 +1,1 @@
+# Dependency declarations live in pyproject.toml. Install with: python -m pip install -e ".[dev]"

@@ -1,0 +1,27 @@
+{
+  "app": {
+    "name": "India Flight Intelligence",
+    "environment": "development",
+    "log_level": "INFO",
+    "timezone": "Asia/Kolkata"
+  },
+  "collection": {
+    "enabled": false,
+    "request_timeout_seconds": 20,
+    "max_retries": 3,
+    "publish_raw_data": false
+  },
+  "storage": {
+    "backend": "local",
+    "database_url_env_var": "DATABASE_URL"
+  },
+  "public_api": {
+    "enabled": false,
+    "serve_only_approved_aggregates": true
+  },
+  "limits": {
+    "max_requests_per_run": 10,
+    "max_payload_mb_per_run": 25,
+    "stop_on_quota_warning": true
+  }
+}

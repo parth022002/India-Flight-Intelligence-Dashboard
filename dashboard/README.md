@@ -1,0 +1,1 @@
+# Dashboard\n\nThe deployable frontend is planned for a later stage. Planned stack: Vercel-hosted application with Apache ECharts, consuming approved aggregate endpoints only. Never embed server credentials in browser code.\n

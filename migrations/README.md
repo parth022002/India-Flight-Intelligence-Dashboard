@@ -1,0 +1,1 @@
+# Database migrations\n\nAdd ordered, reviewed migrations here after the schema and data contracts are designed. Never change production schema manually without a migration. Credentials come from environment variables. Stage 1 creates no production schema.\n

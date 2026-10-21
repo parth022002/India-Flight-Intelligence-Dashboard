@@ -1,0 +1,7 @@
+source_name,source_url,data_type,license_or_terms,attribution_required,redistribution_allowed,retention_limits,review_status,last_reviewed_utc,notes
+OurAirports,https://ourairports.com/data/,airport_reference,TO_REVIEW,unknown,unknown,unknown,not_reviewed,,Verify current license and attribution.
+adsb.lol,https://adsb.lol/,adsb_api,TO_REVIEW,unknown,unknown,unknown,not_reviewed,,Verify terms/rate limits and applicable database obligations.
+AAI,https://www.aai.aero/,official_aviation_statistics,TO_REVIEW,unknown,unknown,unknown,not_reviewed,,Record exact report URL and reuse terms.
+DGCA,https://www.dgca.gov.in/,official_aviation_statistics,TO_REVIEW,unknown,unknown,unknown,not_reviewed,,Record exact report URL and reuse terms.
+Aviation Weather Center,https://aviationweather.gov/,weather_observations,TO_REVIEW,unknown,unknown,unknown,not_reviewed,,Verify API policy and retention.
+Iowa Mesonet,https://mesonet.agron.iastate.edu/,weather_observations,TO_REVIEW,unknown,unknown,unknown,not_reviewed,,Verify India coverage and terms.
