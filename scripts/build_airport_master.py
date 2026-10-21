@@ -1,10 +1,12 @@
 ﻿"""Command-line entry point for the India airport-master builder."""
 import argparse
 from pathlib import Path
+
 from flight_intelligence.transforms.airport_master import build_master
+
 DEFAULT_SOURCE = Path("data/reference/ourairports_airports.csv")
 DEFAULT_OUTPUT = Path("data/processed/india_airport_master.csv")
-DEFAULT_REPORT = Path("reports/airport_master_build_report.json")
+DEFAULT_REPORT = Path("reports/generated/airport_master_build_report.json")
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)

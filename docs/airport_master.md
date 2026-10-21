@@ -6,10 +6,11 @@ It is not a complete inventory of all physical airports in India and does not in
 - Source URL: https://ourairports.com/data/
 - Local source: `data/reference/ourairports_airports.csv`
 - Generated master: `data/processed/india_airport_master.csv`
-- Generated report: `reports/airport_master_build_report.json`
+- Generated report: `reports/generated/airport_master_build_report.json`
 - Builder module: `src/flight_intelligence/transforms/airport_master.py`
 - CLI entry point: `scripts/build_airport_master.py`
 - Unit tests: `tests/unit/test_airport_master.py`
+- The build_date_utc field records when the master was generated; it is not a verified publisher source-snapshot date.
 The source and generated CSV are excluded from Git by `.gitignore`. Re-download the source from its publisher when refreshing the dataset, then rebuild the master.
 ## Inclusion and exclusion rules
 The current master includes Indian (`iso_country = IN`) records with type:

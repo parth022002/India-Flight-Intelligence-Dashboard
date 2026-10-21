@@ -1,8 +1,11 @@
 ﻿import pytest
+
 from flight_intelligence.analytics.tiers import (
     classify_airport_tier,
     load_tier_config,
 )
+
+
 @pytest.mark.parametrize(
     ("movements", "expected"),
     [

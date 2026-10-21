@@ -41,3 +41,4 @@ dashboard/.vercel/
 .DS_Store
 Thumbs.db
 desktop.ini
+reports/airport_master_build_report.json

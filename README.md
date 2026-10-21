@@ -2,7 +2,7 @@
 
 A free-first data engineering and analytics project designed to improve visibility into Indian airport activity using airport reference data, ADS-B observations, verified official aviation statistics, and weather observations where available.
 
-> **Status: Stage 1 foundation.** External collection, nationwide coverage, database integration, and dashboards are not yet implemented. This repository does not claim live coverage until capabilities are built and validated.
+> **Status: Stages 1-2 implemented; Stage 3 pending.** The repository foundation, validated airport reference-master builder, and initial traffic-tier classification logic are implemented and tested. Database integration, live ADS-B collection, nationwide coverage validation, and dashboards are not yet implemented. This project does not claim live coverage until capabilities are built and validated.
 
 ## Objectives
 - Build a documented airport reference master from validated public records.

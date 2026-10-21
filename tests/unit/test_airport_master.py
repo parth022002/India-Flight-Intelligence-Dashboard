@@ -1,7 +1,11 @@
 ﻿import json
+
 import pandas as pd
 import pytest
+
 from flight_intelligence.transforms.airport_master import build_master
+
+
 def sample_rows():
     return [
         {

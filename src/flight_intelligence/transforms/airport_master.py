@@ -1,9 +1,12 @@
 ﻿"""Build a validated India airport reference master from OurAirports data."""
 from __future__ import annotations
+
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
 import pandas as pd
+
 INCLUDED_TYPES = {"large_airport", "medium_airport", "small_airport"}
 REQUIRED_COLUMNS = {
     "id", "ident", "type", "name", "latitude_deg", "longitude_deg",
@@ -52,13 +55,13 @@ def build_master(
         invalid |= mask
     accepted = candidates.loc[~invalid].copy()
     accepted["source"] = "OurAirports"
-    accepted["source_snapshot_date_utc"] = datetime.now(timezone.utc).date().isoformat()
+    accepted["build_date_utc"] = datetime.now(UTC).date().isoformat()
     accepted["master_scope"] = "india_civil_airports_v1"
     columns = [
         "id", "ident", "type", "name", "latitude_deg", "longitude_deg",
         "elevation_ft", "iso_country", "iso_region", "municipality",
         "scheduled_service", "icao_code", "iata_code", "source",
-        "source_snapshot_date_utc", "master_scope",
+        "build_date_utc", "master_scope",
     ]
     accepted = accepted[columns].sort_values(
         ["type", "name", "id"], kind="stable"
@@ -86,7 +89,7 @@ def build_master(
         ),
         "iata_code_present_in_master": int(accepted["iata_code"].notna().sum()),
         "icao_code_present_in_master": int(accepted["icao_code"].notna().sum()),
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "scope_note": (
             "Validated OurAirports-derived reference subset; not a complete "
             "inventory of all physical or operational Indian airports. "
