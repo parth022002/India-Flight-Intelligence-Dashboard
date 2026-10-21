@@ -1,3 +1,4 @@
+
 {
   "app": {
     "name": "India Flight Intelligence",
@@ -9,6 +10,18 @@
     "enabled": false,
     "request_timeout_seconds": 20,
     "max_retries": 3,
+    "publish_raw_data": false
+  },
+  "adsb": {
+    "provider": "adsb.lol",
+    "base_url": "https://api.adsb.lol",
+    "enabled": false,
+    "pilot_mode": true,
+    "max_requests_per_run": 2,
+    "max_payload_mb_per_run": 5,
+    "request_timeout_seconds": 20,
+    "max_retries": 2,
+    "retry_backoff_seconds": 2,
     "publish_raw_data": false
   },
   "storage": {
