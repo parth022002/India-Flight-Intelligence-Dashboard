@@ -221,3 +221,24 @@ def test_persist_observations_finalizes_partial_run_when_records_rejected(
     assert finalization_call.args[1]["records_received"] == 3
     assert finalization_call.args[1]["records_accepted"] == 1
     assert finalization_call.args[1]["records_rejected"] == 2
+
+
+def test_insert_failure_propagates_without_finalizing_run(
+    observation: dict,
+) -> None:
+    connection = MagicMock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = ("live_poll", "running", 20)
+    cursor.executemany.side_effect = RuntimeError("simulated insert failure")
+    with pytest.raises(RuntimeError, match="simulated insert failure"):
+        persist_adsb_observations(
+            connection,
+            [observation],
+            run_id=10,
+            source_id=20,
+        )
+    connection.transaction.assert_called_once()
+    cursor.executemany.assert_called_once()
+    assert not any(
+        "UPDATE collection_runs" in str(call.args[0]) for call in cursor.execute.call_args_list
+    )
