@@ -1,5 +1,4 @@
-﻿
-"""Apply reviewed PostgreSQL migrations."""
+﻿"""Apply reviewed PostgreSQL migrations."""
 from __future__ import annotations
 
 import argparse
@@ -10,6 +9,7 @@ from flight_intelligence.storage.migrations import apply_migrations
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS_DIR = PROJECT_ROOT / "sql" / "migrations"
+MIGRATION_DATABASE_URL_ENV = "FLIGHT_INTEL_MIGRATION_DATABASE_URL"
 
 
 def main() -> int:
@@ -35,7 +35,7 @@ def main() -> int:
         print(f"Validated {len(migrations)} migration(s).")
         return 0
 
-    with connect_database() as connection:
+    with connect_database(url_env_var=MIGRATION_DATABASE_URL_ENV) as connection:
         applied = apply_migrations(connection, MIGRATIONS_DIR)
 
     if applied:

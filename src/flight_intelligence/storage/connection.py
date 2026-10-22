@@ -10,23 +10,28 @@ from dotenv import load_dotenv
 def connect_database(
     *,
     timeout_seconds: int = 10,
+    url_env_var: str = "DATABASE_URL",
 ) -> psycopg.Connection:
-    """Connect to PostgreSQL using DATABASE_URL from the environment."""
+    """Connect using an explicitly selected environment variable."""
     if timeout_seconds <= 0:
         raise ValueError("timeout_seconds must be positive")
+    if not url_env_var or not url_env_var.strip():
+        raise ValueError("url_env_var must not be empty")
+
     load_dotenv()
-    database_url = os.getenv("DATABASE_URL", "").strip()
+    database_url = os.getenv(url_env_var, "").strip()
     if not database_url:
         raise RuntimeError(
-            "DATABASE_URL is missing. Configure it in your local .env file."
+            f"{url_env_var} is missing. Configure it before connecting."
         )
+
     try:
         return psycopg.connect(
             database_url,
             connect_timeout=timeout_seconds,
         )
     except psycopg.Error as exc:
-        # Do not include the exception text: it may expose connection details.
+        # Never include connection details in error messages.
         raise RuntimeError(
             f"Could not connect to PostgreSQL ({type(exc).__name__})."
         ) from None
