@@ -109,3 +109,51 @@ def test_orchestrator_persists_mocked_collection_and_finalizes_run():
         ).fetchone()
 
         assert observation == ("live_poll", "a1b2c3", "TEST123")
+
+        
+def test_unapproved_source_is_rejected_without_creating_a_run():
+    with isolated_database() as conn:
+        source_id = conn.execute(
+            """
+            INSERT INTO data_sources
+                (source_name, source_url, data_type, license_status)
+            VALUES (%s, %s, 'adsb_api', 'not_reviewed')
+            RETURNING source_id
+            """,
+            (
+                "adsb.lol",
+                "https://example.invalid/synthetic-test-data",
+            ),
+        ).fetchone()[0]
+
+        client = MagicMock()
+        client.config.enabled = True
+
+        with pytest.raises(ValueError, match="must be approved"):
+            run_adsb_collection(
+                conn,
+                client,
+                source_id=source_id,
+                endpoint="/v0/test",
+            )
+
+        client.fetch_aircraft.assert_not_called()
+
+        run_count = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM collection_runs
+            WHERE source_id = %s
+            """,
+            (source_id,),
+        ).fetchone()[0]
+
+        observation_count = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM adsb_observations
+            """,
+        ).fetchone()[0]
+
+        assert run_count == 0
+        assert observation_count == 0
