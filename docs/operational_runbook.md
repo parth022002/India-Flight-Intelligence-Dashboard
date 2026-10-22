@@ -39,11 +39,14 @@ These checks describe the verified baseline at the time of testing. Re-run the c
 
 ### Migration safety
 1. Review migration SQL and confirm it has a new, correctly ordered version.
-2. Back up or otherwise establish a recovery plan before applying production changes.
-3. Apply migrations through the repository migration runner.
-4. Verify migration history, expected tables, constraints, indexes, and triggers afterward.
-5. Never edit an already-applied migration. Add a new migration for schema changes.
-6. Test destructive or failure scenarios in an isolated schema, not in `public`.
+2. Run `python scripts/apply_migrations.py --check` to validate migration files without connecting to a database.
+3. Set `FLIGHT_INTEL_MIGRATION_DATABASE_URL` explicitly in the current PowerShell session or approved secret store. Never rely on `DATABASE_URL` for migrations.
+4. Confirm the target Neon branch and database before applying migrations. Never run migration commands against production during development testing.
+5. Back up or otherwise establish a recovery plan before applying production changes.
+6. Apply migrations through the repository migration runner only after the target and permissions are verified.
+7. Verify migration history, expected tables, constraints, indexes, and triggers afterward.
+8. Never edit an already-applied migration. Add a new migration for schema changes.
+9. Test destructive or failure scenarios in an isolated schema, not in `public`.
 
 ### Airport master import
 - Validate the generated airport master before importing.
