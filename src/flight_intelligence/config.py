@@ -1,5 +1,5 @@
-
 """Configuration loading helpers with safe defaults."""
+
 from __future__ import annotations
 
 import json
@@ -47,6 +47,10 @@ def build_adsb_client_config(config: dict[str, Any]) -> AdsbClientConfig:
 
     collection_enabled = collection.get("enabled", False)
     adsb_enabled = adsb.get("enabled", False)
+    pilot_mode = adsb.get("pilot_mode", False)
+
+    if not isinstance(pilot_mode, bool):
+        raise ValueError("adsb.pilot_mode must be a boolean")
 
     if not isinstance(collection_enabled, bool):
         raise ValueError("collection.enabled must be a boolean")
@@ -98,11 +102,7 @@ def build_adsb_client_config(config: dict[str, Any]) -> AdsbClientConfig:
     ):
         raise ValueError("adsb.request_timeout_seconds must be positive")
 
-    if (
-        isinstance(max_retries, bool)
-        or not isinstance(max_retries, int)
-        or max_retries < 0
-    ):
+    if isinstance(max_retries, bool) or not isinstance(max_retries, int) or max_retries < 0:
         raise ValueError("adsb.max_retries must be a nonnegative integer")
 
     if (
@@ -120,5 +120,5 @@ def build_adsb_client_config(config: dict[str, Any]) -> AdsbClientConfig:
         retry_backoff_seconds=float(retry_backoff_seconds),
         max_requests_per_run=max_requests,
         max_payload_bytes_per_run=int(max_payload_mb * 1024 * 1024),
-        enabled=adsb_enabled and collection_enabled,
+        enabled=adsb_enabled and collection_enabled and pilot_mode,
     )

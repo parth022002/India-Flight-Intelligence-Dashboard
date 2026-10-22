@@ -24,8 +24,16 @@ def test_invalid_top_level_config_raises(tmp_path):
 
 @pytest.mark.parametrize(
     ("movements", "expected"),
-    [(None, "T0"), (0, "T0"), (999, "T0"), (1000, "T4"),
-     (11999, "T4"), (12000, "T3"), (40000, "T2"), (100000, "T1")],
+    [
+        (None, "T0"),
+        (0, "T0"),
+        (999, "T0"),
+        (1000, "T4"),
+        (11999, "T4"),
+        (12000, "T3"),
+        (40000, "T2"),
+        (100000, "T1"),
+    ],
 )
 def test_tier_classification(movements, expected):
     assert classify_airport_tier(movements) == expected
@@ -207,3 +215,38 @@ def test_non_finite_adsb_numeric_settings_are_rejected(field, value):
     }
     with pytest.raises(ValueError):
         build_adsb_client_config(config)
+
+
+def test_adsb_config_requires_boolean_pilot_mode():
+    config = {
+        "collection": {"enabled": False},
+        "adsb": {
+            "enabled": False,
+            "pilot_mode": "true",
+            "max_requests_per_run": 2,
+            "max_payload_mb_per_run": 5,
+        },
+        "limits": {
+            "max_requests_per_run": 10,
+            "max_payload_mb_per_run": 25,
+        },
+    }
+    with pytest.raises(ValueError, match="pilot_mode"):
+        build_adsb_client_config(config)
+
+
+def test_adsb_config_defaults_pilot_mode_to_false():
+    config = {
+        "collection": {"enabled": False},
+        "adsb": {
+            "enabled": False,
+            "max_requests_per_run": 2,
+            "max_payload_mb_per_run": 5,
+        },
+        "limits": {
+            "max_requests_per_run": 10,
+            "max_payload_mb_per_run": 25,
+        },
+    }
+    client_config = build_adsb_client_config(config)
+    assert client_config.enabled is False
