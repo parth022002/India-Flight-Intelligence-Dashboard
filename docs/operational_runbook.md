@@ -70,3 +70,11 @@ These checks describe the verified baseline at the time of testing. Re-run the c
 - Automate the real-PostgreSQL rollback test in an opt-in integration-test suite using an isolated temporary schema.
 - Define and verify least-privilege roles for ingestion and approved aggregate reads before application deployment.
 - Review database access and migration procedures before enabling scheduled collection or public serving.
+
+### Migration-role limitation and acceptance criteria
+- The `ifi_migrator` role exists but is not currently configured to execute migrations.
+- The migration runner requires `FLIGHT_INTEL_MIGRATION_DATABASE_URL` and must not fall back to `DATABASE_URL`.
+- Until a dedicated migration workflow is designed and tested, migrations remain manually controlled administrative operations.
+- Do not grant broad schema or table privileges merely to make the migration role functional.
+- Before marking migration security complete, test the dedicated migration workflow on `ifi-test`, verify its effective privileges, confirm migration checksum protection, and prove that production cannot be targeted accidentally.
+- The dashboard reader must remain without base-table access until approved aggregate views and their grants are implemented and verified.
