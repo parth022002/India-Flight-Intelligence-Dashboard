@@ -11,16 +11,23 @@ import pytest
 from psycopg import sql
 
 from flight_intelligence.collectors.adsb_orchestrator import run_adsb_collection
+from flight_intelligence.storage.airport_import import import_airport_master
 from flight_intelligence.storage.migrations import apply_migrations
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = PROJECT_ROOT / "sql" / "migrations"
+AIRPORT_CSV = PROJECT_ROOT / "data" / "processed" / "india_airport_master.csv"
 
 AIRPORT_SELECT_COLUMNS = (
     "source_name source_airport_id ident airport_type name "
     "latitude_deg longitude_deg elevation_ft iso_country iso_region "
     "municipality scheduled_service icao_code iata_code master_scope "
     "source_build_date"
+)
+AIRPORT_UPDATE_COLUMNS = (
+    "ident airport_type name latitude_deg longitude_deg elevation_ft "
+    "iso_country iso_region municipality scheduled_service icao_code "
+    "iata_code master_scope source_build_date"
 )
 RUN_SELECT_COLUMNS = "run_id source_id run_type status"
 RUN_UPDATE_COLUMNS = (
@@ -44,46 +51,66 @@ def _grant_test_schema(conn: psycopg.Connection, schema: str) -> None:
         sql.SQL("GRANT USAGE ON SCHEMA {} TO ifi_pipeline_login").format(ident)
     )
 
+    # Airport master import: INSERT plus narrowly scoped UPDATE.
     conn.execute(
-        sql.SQL("GRANT INSERT, UPDATE ON TABLE {}.airports TO ifi_pipeline_writer")
-        .format(ident)
+        sql.SQL("GRANT INSERT ON TABLE {}.airports TO ifi_pipeline_writer").format(
+            ident
+        )
     )
     conn.execute(
-        sql.SQL("GRANT SELECT ({}) ON TABLE {}.airports TO ifi_pipeline_writer")
-        .format(
+        sql.SQL("REVOKE UPDATE ON TABLE {}.airports FROM ifi_pipeline_writer").format(
+            ident
+        )
+    )
+    conn.execute(
+        sql.SQL("GRANT UPDATE ({}) ON TABLE {}.airports TO ifi_pipeline_writer").format(
+            sql.SQL(", ").join(
+                map(sql.Identifier, AIRPORT_UPDATE_COLUMNS.split())
+            ),
+            ident,
+        )
+    )
+    conn.execute(
+        sql.SQL("GRANT SELECT ({}) ON TABLE {}.airports TO ifi_pipeline_writer").format(
             sql.SQL(", ").join(map(sql.Identifier, AIRPORT_SELECT_COLUMNS.split())),
             ident,
         )
     )
 
+    # Collection run creation and narrowly scoped finalization.
     conn.execute(
         sql.SQL(
             "GRANT INSERT ON TABLE {}.collection_runs TO ifi_pipeline_writer"
         ).format(ident)
     )
     conn.execute(
-        sql.SQL("GRANT SELECT ({}) ON TABLE {}.collection_runs TO ifi_pipeline_writer")
-        .format(
+        sql.SQL(
+            "GRANT SELECT ({}) ON TABLE {}.collection_runs TO ifi_pipeline_writer"
+        ).format(
             sql.SQL(", ").join(map(sql.Identifier, RUN_SELECT_COLUMNS.split())),
             ident,
         )
     )
     conn.execute(
-        sql.SQL("GRANT UPDATE ({}) ON TABLE {}.collection_runs TO ifi_pipeline_writer")
-        .format(
+        sql.SQL(
+            "GRANT UPDATE ({}) ON TABLE {}.collection_runs TO ifi_pipeline_writer"
+        ).format(
             sql.SQL(", ").join(map(sql.Identifier, RUN_UPDATE_COLUMNS.split())),
             ident,
         )
     )
 
+    # Source verification for the ADS-B orchestrator.
     conn.execute(
-        sql.SQL("GRANT SELECT ({}) ON TABLE {}.data_sources TO ifi_pipeline_writer")
-        .format(
+        sql.SQL(
+            "GRANT SELECT ({}) ON TABLE {}.data_sources TO ifi_pipeline_writer"
+        ).format(
             sql.SQL(", ").join(map(sql.Identifier, SOURCE_SELECT_COLUMNS.split())),
             ident,
         )
     )
 
+    # ADS-B observations: insertion only, without direct read/delete access.
     conn.execute(
         sql.SQL(
             "GRANT INSERT ({}) ON TABLE {}.adsb_observations TO ifi_pipeline_writer"
@@ -95,6 +122,7 @@ def _grant_test_schema(conn: psycopg.Connection, schema: str) -> None:
         )
     )
 
+    # Identity sequences used by the importer and collector.
     for sequence in (
         "airports_airport_id_seq",
         "collection_runs_run_id_seq",
@@ -158,9 +186,7 @@ def restricted_test_database():
                     sql.SQL("SET search_path TO {}").format(sql.Identifier(schema))
                 )
 
-                active_schema = writer.execute(
-                    "SELECT current_schema()"
-                ).fetchone()[0]
+                active_schema = writer.execute("SELECT current_schema()").fetchone()[0]
                 assert active_schema == schema, (
                     f"Expected schema {schema!r}, got {active_schema!r}"
                 )
@@ -182,13 +208,11 @@ def restricted_test_database():
 
 
 def test_restricted_role_runs_orchestrator_and_cannot_read_or_delete_observations():
+    """The restricted login can collect ADS-B but cannot read/delete observations."""
     with restricted_test_database() as (writer, schema, admin_url):
         source_id = writer.execute(
             "SELECT source_id FROM data_sources WHERE source_name = 'adsb.lol'"
         ).fetchone()[0]
-
-        # Finish the transaction opened by the source lookup before running
-        # the workflow, so the persistence transaction is not just a savepoint.
         writer.commit()
 
         client = type(
@@ -216,11 +240,8 @@ def test_restricted_role_runs_orchestrator_and_cannot_read_or_delete_observation
 
         assert result["status"] == "succeeded"
         assert result["records_accepted"] == 1
-
-        # Commit the workflow before verifying its data from another connection.
         writer.commit()
 
-        # The restricted login must not be able to read or delete observations.
         for query, params in (
             (
                 "SELECT observation_id FROM adsb_observations WHERE run_id = %s",
@@ -237,20 +258,16 @@ def test_restricted_role_runs_orchestrator_and_cannot_read_or_delete_observation
                 autocommit=True,
             ) as restricted_check:
                 restricted_check.execute(
-                    sql.SQL("SET search_path TO {}").format(
-                        sql.Identifier(schema)
-                    )
+                    sql.SQL("SET search_path TO {}").format(sql.Identifier(schema))
                 )
-
                 with pytest.raises(psycopg.errors.InsufficientPrivilege):
                     restricted_check.execute(query, params)
 
-        # Verify the persisted observation using the administrative connection.
+        # Verify stored data with the administrative connection.
         with psycopg.connect(admin_url, connect_timeout=10) as admin:
             admin.execute(
                 sql.SQL("SET search_path TO {}").format(sql.Identifier(schema))
             )
-
             stored = admin.execute(
                 """
                 SELECT source_type, icao24, callsign
@@ -261,3 +278,93 @@ def test_restricted_role_runs_orchestrator_and_cannot_read_or_delete_observation
             ).fetchone()
 
             assert stored == ("live_poll", "a1b2c3", "TEST123")
+
+
+def test_restricted_role_can_update_only_approved_airport_columns():
+    """The writer can update only the airport UPSERT columns."""
+    with restricted_test_database() as (writer, schema, _admin_url):
+        allowed_columns = set(AIRPORT_UPDATE_COLUMNS.split())
+
+        rows = writer.execute(
+            """
+            SELECT column_name,
+                   has_column_privilege(
+                       current_user,
+                       %s,
+                       column_name,
+                       'UPDATE'
+                   )
+            FROM information_schema.columns
+            WHERE table_schema = %s
+              AND table_name = 'airports'
+            """,
+            (f"{schema}.airports", schema),
+        ).fetchall()
+
+        actual_allowed = {
+            column for column, can_update in rows if can_update
+        }
+        assert actual_allowed == allowed_columns
+
+        # These statements should fail at permission checking, even with no
+        # matching rows. Roll back after each expected permission error.
+        for column in ("airport_id", "imported_at"):
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                writer.execute(
+                    sql.SQL("UPDATE {}.airports SET {} = {} WHERE FALSE").format(
+                        sql.Identifier(schema),
+                        sql.Identifier(column),
+                        sql.SQL("DEFAULT"),
+                    )
+                )
+            writer.rollback()
+
+
+def test_restricted_role_successfully_imports_airport_master():
+    """The restricted writer can import airports with narrowed UPDATE grants."""
+    if not AIRPORT_CSV.is_file():
+        pytest.fail(f"Airport master CSV is missing: {AIRPORT_CSV}")
+
+    with restricted_test_database() as (writer, schema, admin_url):
+        # Finish the fixture's initial lookup transaction before starting import.
+        writer.commit()
+
+        result = import_airport_master(
+            writer,
+            AIRPORT_CSV,
+            dry_run=False,
+        )
+
+        assert result == {
+            "dry_run": False,
+            "records_validated": 320,
+            "records_upserted": 320,
+        }
+
+        # The importer should have committed its transaction successfully.
+        with psycopg.connect(admin_url, connect_timeout=10) as admin:
+            admin.execute(
+                sql.SQL("SET search_path TO {}").format(sql.Identifier(schema))
+            )
+
+            airport_count = admin.execute(
+                "SELECT COUNT(*) FROM airports"
+            ).fetchone()[0]
+            assert airport_count == 320
+
+            run = admin.execute(
+                """
+                SELECT run_type, status, records_received, records_accepted
+                FROM collection_runs
+                ORDER BY run_id DESC
+                LIMIT 1
+                """
+            ).fetchone()
+
+            assert run == ("airport_master_import", "succeeded", 320, 320)
+
+            # imported_at is database-managed and should remain populated.
+            imported_at_count = admin.execute(
+                "SELECT COUNT(*) FROM airports WHERE imported_at IS NOT NULL"
+            ).fetchone()[0]
+            assert imported_at_count == 320

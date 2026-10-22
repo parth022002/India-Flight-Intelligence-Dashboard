@@ -3,8 +3,31 @@ BEGIN;
 -- Schema access
 GRANT USAGE ON SCHEMA public TO ifi_pipeline_writer;
 
--- Airport master import: preserve existing permissions
-GRANT INSERT, UPDATE
+-- Airport master import: limit updates to columns used by the UPSERT
+GRANT INSERT
+ON TABLE public.airports
+TO ifi_pipeline_writer;
+
+REVOKE UPDATE
+ON TABLE public.airports
+FROM ifi_pipeline_writer;
+
+GRANT UPDATE (
+    ident,
+    airport_type,
+    name,
+    latitude_deg,
+    longitude_deg,
+    elevation_ft,
+    iso_country,
+    iso_region,
+    municipality,
+    scheduled_service,
+    icao_code,
+    iata_code,
+    master_scope,
+    source_build_date
+)
 ON TABLE public.airports
 TO ifi_pipeline_writer;
 
