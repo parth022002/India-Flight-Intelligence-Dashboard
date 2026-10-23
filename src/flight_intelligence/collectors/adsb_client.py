@@ -3,6 +3,7 @@
 Live requests must remain disabled until provider terms and access limits
 have been reviewed.
 """
+
 from __future__ import annotations
 
 import logging
@@ -96,9 +97,11 @@ class AdsbClient:
     def __exit__(self, *_: object) -> None:
         self.close()
 
-
     def _validate_endpoint(self, endpoint: str) -> str:
-        """Accept a safe relative API path, with or without a leading slash."""
+        """Accept only a valid ADS-B API v2 geographic search path."""
+        import math
+        import re
+
         if not isinstance(endpoint, str) or not endpoint.strip():
             raise ValueError("endpoint must be a non-empty relative API path")
 
@@ -116,11 +119,28 @@ class AdsbClient:
             raise ValueError("endpoint must be a safe relative API path")
 
         path = endpoint.lstrip("/")
-        if not path:
-            raise ValueError("endpoint contains an invalid path")
+        match = re.fullmatch(
+            r"v2/lat/([^/]+)/lon/([^/]+)/dist/([^/]+)",
+            path,
+        )
+        if not match:
+            raise ValueError("endpoint must match the supported ADS-B API v2 route")
+
+        try:
+            latitude, longitude, radius = map(float, match.groups())
+        except ValueError as exc:
+            raise ValueError("endpoint coordinates and radius must be numeric") from exc
+
+        if not all(map(math.isfinite, (latitude, longitude, radius))):
+            raise ValueError("endpoint coordinates and radius must be finite")
+        if not -90 <= latitude <= 90:
+            raise ValueError("latitude must be between -90 and 90")
+        if not -180 <= longitude <= 180:
+            raise ValueError("longitude must be between -180 and 180")
+        if not 0 < radius <= 250:
+            raise ValueError("radius must be greater than 0 and at most 250")
 
         return path
-
 
     def fetch_aircraft(self, endpoint: str) -> dict[str, Any]:
         """Fetch one JSON endpoint and return its validated payload.
@@ -144,7 +164,6 @@ class AdsbClient:
                 with self._client.stream("GET", url) as response:
                     content = bytearray()
 
-
                     for chunk in response.iter_bytes():
                         remaining = (
                             self.config.max_payload_bytes_per_run
@@ -158,12 +177,9 @@ class AdsbClient:
                             if remaining > 0:
                                 content.extend(chunk[:remaining])
                             self._payload_bytes_used += len(content)
-                            raise AdsbClientError(
-                                "per-run response payload budget exceeded"
-                            )
+                            raise AdsbClientError("per-run response payload budget exceeded")
 
                         content.extend(chunk)
-
 
                     # Count the response body, even if its HTTP status is unsuccessful.
                     self._payload_bytes_used += len(content)
@@ -183,9 +199,7 @@ class AdsbClient:
                                 headers={"content-type": "application/json"},
                             ).json()
                         except ValueError as exc:
-                            raise AdsbClientError(
-                                "API response was not valid JSON"
-                            ) from exc
+                            raise AdsbClientError("API response was not valid JSON") from exc
 
                         errors = validate_adsb_payload(payload)
                         if errors:

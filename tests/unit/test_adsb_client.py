@@ -7,6 +7,8 @@ from flight_intelligence.collectors.adsb_client import (
     AdsbClientError,
 )
 
+VALID_ENDPOINT = "/v2/lat/19.0760/lon/72.8777/dist/50"
+
 
 def make_http_client(handler):
     return httpx.Client(transport=httpx.MockTransport(handler))
@@ -21,7 +23,7 @@ def test_disabled_client_makes_no_request():
         client=make_http_client(handler),
     ) as client:
         with pytest.raises(AdsbClientError, match="disabled"):
-            client.fetch_aircraft("/v0/test")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
         assert client.requests_used == 0
         assert client.payload_bytes_used == 0
@@ -32,14 +34,15 @@ def test_valid_response_is_returned():
 
     def handler(request):
         assert request.url.scheme == "https"
-        assert request.url.path == "/v2/lat/19.0760/lon/72.8777/dist/50"
+        assert request.url.host == "api.adsb.lol"
+        assert request.url.path == VALID_ENDPOINT
         return httpx.Response(200, json=payload)
 
     with AdsbClient(
         AdsbClientConfig(enabled=True, max_retries=0),
         client=make_http_client(handler),
     ) as client:
-        assert client.fetch_aircraft("/v2/lat/19.0760/lon/72.8777/dist/50") == payload
+        assert client.fetch_aircraft(VALID_ENDPOINT) == payload
         assert client.requests_used == 1
         assert client.payload_bytes_used == len(httpx.Response(200, json=payload).content)
 
@@ -53,7 +56,7 @@ def test_invalid_json_is_rejected():
         client=make_http_client(handler),
     ) as client:
         with pytest.raises(AdsbClientError, match="valid JSON"):
-            client.fetch_aircraft("/v0/test")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
 
 def test_invalid_payload_is_rejected():
@@ -65,7 +68,7 @@ def test_invalid_payload_is_rejected():
         client=make_http_client(handler),
     ) as client:
         with pytest.raises(AdsbClientError, match="failed validation"):
-            client.fetch_aircraft("/v0/test")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
 
 def test_request_budget_is_enforced():
@@ -86,13 +89,13 @@ def test_request_budget_is_enforced():
         client=make_http_client(handler),
     ) as client:
         with pytest.raises(AdsbClientError):
-            client.fetch_aircraft("/v0/test")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
         assert calls == 2
         assert client.requests_used == 2
 
         with pytest.raises(AdsbClientError, match="budget exhausted"):
-            client.fetch_aircraft("/v0/test")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
         assert calls == 2
 
@@ -110,7 +113,7 @@ def test_oversized_response_is_rejected():
         client=make_http_client(handler),
     ) as client:
         with pytest.raises(AdsbClientError, match="payload budget exceeded"):
-            client.fetch_aircraft("/v0/test")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
         assert client.payload_bytes_used == 2
 
@@ -119,7 +122,6 @@ def test_oversized_response_without_content_length_is_rejected():
     response_body = b"x" * 20
 
     def handler(request):
-        # Explicitly omit Content-Length to exercise streaming enforcement.
         return httpx.Response(
             200,
             stream=httpx.ByteStream(response_body),
@@ -135,7 +137,7 @@ def test_oversized_response_without_content_length_is_rejected():
         client=make_http_client(handler),
     ) as client:
         with pytest.raises(AdsbClientError, match="payload budget exceeded"):
-            client.fetch_aircraft("/v0/test")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
         assert client.payload_bytes_used == 10
         assert client.requests_used == 1
@@ -169,7 +171,7 @@ def test_http_404_is_not_retried():
         client=make_http_client(handler),
     ) as client:
         with pytest.raises(AdsbClientError, match="HTTP 404"):
-            client.fetch_aircraft("/v0/test")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
         assert calls == 1
         assert client.requests_used == 1
@@ -178,27 +180,59 @@ def test_http_404_is_not_retried():
 @pytest.mark.parametrize(
     "endpoint",
     [
+        # Path traversal, host override, and URL components.
         "../private",
-        "/v0/../private",
+        "/v2/lat/19/lon/72/dist/50/../private",
         "//example.com/data",
-        "/v0/test?debug=true",
-        "/v0/test#fragment",
-        r"/v0\private",
+        "https://example.com/data",
+        "/v2/lat/19/lon/72/dist/50?debug=true",
+        "/v2/lat/19/lon/72/dist/50#fragment",
+        r"/v2\lat\19\lon\72\dist\50",
         "",
         "   ",
+        # Legacy or unrelated paths must be rejected.
+        "/v0/test",
+        "/v0/lat/19/lon/72/dist/50",
+        "/private",
+        "/health",
+        "/v3/lat/19/lon/72/dist/50",
+        # Malformed API v2 routes.
+        "/v2/lat/not-a-number/lon/72.8777/dist/50",
+        "/v2/lat/91/lon/72.8777/dist/50",
+        "/v2/lat/19.0760/lon/181/dist/50",
+        "/v2/lat/19.0760/lon/72.8777/dist/0",
+        "/v2/lat/19.0760/lon/72.8777/dist/251",
+        "/v2/lat/19.0760/dist/50",
+        "/v2/lat/19.0760/lon/72.8777/dist/50/extra",
     ],
 )
-def test_unsafe_relative_endpoints_are_rejected(endpoint):
+def test_unsafe_or_unapproved_endpoints_are_rejected_without_request(endpoint):
     with AdsbClient(
         AdsbClientConfig(enabled=True),
         client=make_http_client(
-            lambda request: pytest.fail("Unsafe endpoint must not make a request")
+            lambda request: pytest.fail("Invalid endpoint must not make an HTTP request")
         ),
     ) as client:
         with pytest.raises(ValueError):
             client.fetch_aircraft(endpoint)
 
         assert client.requests_used == 0
+        assert client.payload_bytes_used == 0
+
+
+def test_valid_endpoint_without_leading_slash_is_accepted():
+    payload = {"aircraft": []}
+    endpoint = VALID_ENDPOINT.lstrip("/")
+
+    def handler(request):
+        assert request.url.path == VALID_ENDPOINT
+        return httpx.Response(200, json=payload)
+
+    with AdsbClient(
+        AdsbClientConfig(enabled=True, max_retries=0),
+        client=make_http_client(handler),
+    ) as client:
+        assert client.fetch_aircraft(endpoint) == payload
 
 
 def test_transient_server_error_is_retried():
@@ -221,7 +255,7 @@ def test_transient_server_error_is_retried():
         ),
         client=make_http_client(handler),
     ) as client:
-        assert client.fetch_aircraft("/v2/lat/19.0760/lon/72.8777/dist/50") == payload
+        assert client.fetch_aircraft(VALID_ENDPOINT) == payload
         assert calls == 2
         assert client.requests_used == 2
 
@@ -239,11 +273,11 @@ def test_payload_budget_is_cumulative_across_responses():
         ),
         client=make_http_client(lambda request: httpx.Response(200, json=payload)),
     ) as client:
-        client.fetch_aircraft("/v0/first")
+        client.fetch_aircraft(VALID_ENDPOINT)
         assert client.payload_bytes_used == response_size
 
         with pytest.raises(AdsbClientError, match="payload budget exceeded"):
-            client.fetch_aircraft("/v0/second")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
         assert client.requests_used == 2
         assert client.payload_bytes_used == response_size + 1
@@ -267,7 +301,7 @@ def test_retry_does_not_exceed_request_budget():
         client=make_http_client(handler),
     ) as client:
         with pytest.raises(AdsbClientError):
-            client.fetch_aircraft("/v0/test")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
         assert calls == 2
         assert client.requests_used == 2
@@ -288,7 +322,7 @@ def test_oversized_response_counts_only_bytes_within_budget():
         client=make_http_client(handler),
     ) as client:
         with pytest.raises(AdsbClientError, match="payload budget exceeded"):
-            client.fetch_aircraft("/v0/test")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
         assert client.payload_bytes_used == 10
         assert client.payload_bytes_used <= 10
@@ -308,10 +342,10 @@ def test_payload_budget_exhausted_before_next_request():
         ),
         client=make_http_client(lambda request: httpx.Response(200, json=payload)),
     ) as client:
-        client.fetch_aircraft("/v0/first")
+        client.fetch_aircraft(VALID_ENDPOINT)
 
         with pytest.raises(AdsbClientError, match="payload budget exceeded"):
-            client.fetch_aircraft("/v0/second")
+            client.fetch_aircraft(VALID_ENDPOINT)
 
         assert client.requests_used == 2
         assert client.payload_bytes_used == response_size
