@@ -139,6 +139,14 @@ Because live collection is not approved, empirical feasibility based on live pro
 - [ ] Define explicit pilot entry criteria, stop conditions, logging, and review responsibilities.
 - [ ] Record a formal decision before any live request is authorized.
 
+## Retention enforcement finding
+
+The proposed retention periods are documented in `docs/retention_policy.md`, but automated enforcement has not been established. The reviewed Python source files contained no identified retention-enforcement implementation, and the `migrations` directory contains only its README, with no migration files found. Database-side controls outside the reviewed repository evidence remain unverified.
+
+Before implementing deletion, resolve the applicable provider retention terms and data contracts, approve the unresolved T5/T6 movement boundaries, and define the deletion scope and safeguards. Any implementation must provide dry-run-first behavior, tests, audit records, and recovery planning.
+
+**Status:** Retention enforcement remains an open Stage 4 action. This finding does not authorize live collection, database changes, or deletion.
+
 ## 8. Current decision
 
 **Stage 4 remains in progress.**
