@@ -134,7 +134,7 @@ Because live collection is not approved, empirical feasibility based on live pro
 - [ ] Obtain and record provider guidance or approval for the intended usage and applicable limits.
 - [ ] Decide whether application-wide limits apply per client, per process, per scheduled run, or across a wider period.
 - [ ] Add and test cumulative enforcement if the agreed design requires it.
-- [ ] Verify the effective runtime configuration without enabling collection.
+- [x] Verify the example configuration without enabling collection: the dry run confirmed collection and ADS-B are disabled, pilot mode is enabled, raw payload persistence is disabled, and no database or network request was made. No separate local settings file exists; scheduled and production runtime configurations remain unverified.
 - [ ] Review retention, deletion, attribution, and redistribution controls against the approved use.
 - [ ] Define explicit pilot entry criteria, stop conditions, logging, and review responsibilities.
 - [ ] Record a formal decision before any live request is authorized.
