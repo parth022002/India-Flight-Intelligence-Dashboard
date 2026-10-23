@@ -349,3 +349,61 @@ def test_payload_budget_exhausted_before_next_request():
 
         assert client.requests_used == 2
         assert client.payload_bytes_used == response_size
+
+
+@pytest.mark.parametrize(
+    "exception",
+    [
+        httpx.ReadTimeout("simulated timeout"),
+        httpx.ConnectError("simulated connection error"),
+    ],
+)
+def test_transport_errors_are_retried_within_request_budget(exception):
+    calls = 0
+    payload = {"aircraft": []}
+
+    def handler(request):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise exception
+        return httpx.Response(200, json=payload)
+
+    with AdsbClient(
+        AdsbClientConfig(
+            enabled=True,
+            max_retries=1,
+            retry_backoff_seconds=0,
+            max_requests_per_run=2,
+        ),
+        client=make_http_client(handler),
+    ) as client:
+        assert client.fetch_aircraft(VALID_ENDPOINT) == payload
+        assert calls == 2
+        assert client.requests_used == 2
+
+
+@pytest.mark.parametrize("status_code", [408, 429])
+def test_retryable_http_statuses_are_retried(status_code):
+    calls = 0
+    payload = {"aircraft": []}
+
+    def handler(request):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(status_code)
+        return httpx.Response(200, json=payload)
+
+    with AdsbClient(
+        AdsbClientConfig(
+            enabled=True,
+            max_retries=1,
+            retry_backoff_seconds=0,
+            max_requests_per_run=2,
+        ),
+        client=make_http_client(handler),
+    ) as client:
+        assert client.fetch_aircraft(VALID_ENDPOINT) == payload
+        assert calls == 2
+        assert client.requests_used == 2
