@@ -64,9 +64,11 @@ The example configuration currently records:
 
 These values are example settings, not proof of the effective runtime configuration.
 
-The configuration loader checks that the ADS-B request and payload budgets do not exceed the application-wide configured ceilings. The reviewed runner constructs one client for one invocation, and the orchestrator makes one collection call through that client.
+The configuration loader checks that the ADS-B request and payload budgets do not exceed the application-wide configured ceilings. The runner constructs one client per invocation, and the orchestrator makes one collection call through that client.
 
-**Outstanding technical question:** The reviewed code does not establish a shared cumulative runtime counter enforcing the application-wide 10-request and 25-MB ceilings across multiple client instances or separate runner invocations. The intended scope of these ceilings must be decided and documented before claiming that they are global runtime guards.
+**Limit scope decision (documented interpretation):** For the current single-runner workflow, `adsb.max_requests_per_run` and `adsb.max_payload_mb_per_run` are intended to bound HTTP attempts (including retries) and response bytes, respectively, within one runner invocation. The `limits.max_requests_per_run` and `limits.max_payload_mb_per_run` settings act as configuration ceilings against which the ADS-B-specific budgets are validated; they are not shared cumulative runtime counters across separate invocations or client instances.
+
+This interpretation matches the current implementation. It does not provide a global rate or quota limit across concurrent processes, repeated invocations, or a time window. If those protections are required for a future scheduled or concurrent deployment, they must be designed and tested separately. This documented interpretation does not authorize live collection.
 
 ## 4. Automated validation evidence
 
