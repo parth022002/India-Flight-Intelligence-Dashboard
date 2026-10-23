@@ -250,3 +250,34 @@ def test_adsb_config_defaults_pilot_mode_to_false():
     }
     client_config = build_adsb_client_config(config)
     assert client_config.enabled is False
+
+
+@pytest.mark.parametrize(
+    ("collection_enabled", "adsb_enabled", "pilot_mode", "expected"),
+    [
+        (False, True, True, False),
+        (True, False, True, False),
+        (True, True, False, False),
+        (True, True, True, True),
+    ],
+)
+def test_adsb_client_requires_all_enablement_switches(
+    collection_enabled, adsb_enabled, pilot_mode, expected
+):
+    config = {
+        "collection": {"enabled": collection_enabled},
+        "adsb": {
+            "enabled": adsb_enabled,
+            "pilot_mode": pilot_mode,
+            "max_requests_per_run": 2,
+            "max_payload_mb_per_run": 5,
+        },
+        "limits": {
+            "max_requests_per_run": 10,
+            "max_payload_mb_per_run": 25,
+        },
+    }
+
+    client_config = build_adsb_client_config(config)
+
+    assert client_config.enabled is expected
