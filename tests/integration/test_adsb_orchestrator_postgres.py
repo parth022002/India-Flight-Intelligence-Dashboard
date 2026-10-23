@@ -15,6 +15,7 @@ from flight_intelligence.storage.migrations import apply_migrations
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = PROJECT_ROOT / "sql" / "migrations"
+VALID_ENDPOINT = "/v2/lat/19.0760/lon/72.8777/dist/50"
 
 
 @contextmanager
@@ -81,12 +82,12 @@ def test_orchestrator_persists_mocked_collection_and_finalizes_run():
             conn,
             client,
             source_id=source_id,
-            endpoint="/v0/test",
+            endpoint=VALID_ENDPOINT,
         )
 
         assert result["status"] == "succeeded"
         assert result["records_accepted"] == 1
-        client.fetch_aircraft.assert_called_once_with("/v0/test")
+        client.fetch_aircraft.assert_called_once_with(VALID_ENDPOINT)
 
         run = conn.execute(
             """
@@ -134,7 +135,7 @@ def test_unapproved_source_is_rejected_without_creating_a_run():
                 conn,
                 client,
                 source_id=source_id,
-                endpoint="/v0/test",
+                endpoint=VALID_ENDPOINT,
             )
 
         client.fetch_aircraft.assert_not_called()

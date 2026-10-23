@@ -16,6 +16,7 @@ from flight_intelligence.storage.migrations import apply_migrations
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = PROJECT_ROOT / "sql" / "migrations"
+VALID_ENDPOINT = "/v2/lat/19.0760/lon/72.8777/dist/50"
 AIRPORT_CSV = PROJECT_ROOT / "data" / "processed" / "india_airport_master.csv"
 
 AIRPORT_SELECT_COLUMNS = (
@@ -235,7 +236,7 @@ def test_restricted_role_runs_orchestrator_and_cannot_read_or_delete_observation
         )()
 
         result = run_adsb_collection(
-            writer, client, source_id=source_id, endpoint="/v0/test"
+            writer, client, source_id=source_id, endpoint=VALID_ENDPOINT
         )
 
         assert result["status"] == "succeeded"
